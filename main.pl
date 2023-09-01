@@ -1,3 +1,4 @@
+% Código visto em https://stackoverflow.com/questions/41025065/prolog-strips-planner-never-completes
 % Based on
 %
 % Exercise 17.5 on page 429 of "Prolog Programming for Artificial Intelligence"
@@ -53,9 +54,19 @@ run :-
  % interesting (not sure what that means exactly regarding solution finding)
  % The atoms used in describing places and blocks must be distinct due to program construction!
  
- start_state([on(a,1), on(b,a), on(c,b), clear(c), clear(2), clear(3), clear(4)]).
- final_state([on(a,2), on(b,a), on(c,b), clear(c), clear(1), clear(3), clear(4)]).
- 
+ start_state([on(a,1), on(b,2), on(c,3), clear(a), clear(b), clear(c), clear(4)]).
+ final_state([on(a,1), on(b,2), on(c,a), clear(c), clear(2), clear(3), clear(4)]).
+
+%  start_state([on(b,1), on(d,2), clear(b), clear(d), clear(3), clear(4)]).
+%  final_state([on(d,2), on(b,d), clear(b), clear(1), clear(3), clear(4)]).
+
+% INICIAL    FINAL
+% d(^)        d(^)
+% c           c
+% b           b
+% a           a
+% 1 2 3 4 | 1 2 3 4
+
  % ----------
  % Representation of the blocks world
  % ----------
@@ -63,11 +74,13 @@ run :-
  % We have BLOCKs identified by atoms a,b,c, ...
  % Each of those is identified by block/1 attribute.
  % A block/1 is clear/1 if there is nothing on top of it.
- % A block/1 is on(Block, Object) where Object is a block/1 or place/1.
+ % A block/1 is on(Shape, Object) where Object is a block/1 or place/1.
  
  block(a).
- block(b).
- block(c).
+%  block(b).
+%  block(c).
+ triangle(b).
+ ball(c).
  
  % We have PLACEs (i.e. columns of blocks) onto which to stack blocks.
  % Each of these is identified by place/1 attribute.
@@ -81,10 +94,21 @@ run :-
  
  % OBJECTs are place/1 or block/1.
  
- object(X) :- place(X) ; block(X).
+ shape(X) :- block(X) ; triangle(X) ; ball(X).
+ object(X) :- place(X) ; shape(X).
+
+ % Checks if a shape can be stacked
+ stackable(Shape, To) :- 
+  shape(Shape), 
+  (place(To) ; block(To)). % Shapes can only be stacked or blocks
+
+ % Balls can only be stacked in place
+ stackable(Shape, To) :-
+  ball(Shape),
+  place(To).
  
- % ACTIONs are terms "move( Block, From, To)".
- % "Block" must be block/1.
+ % ACTIONs are terms "move( Shape, From, To)".
+ % "Shape" must be block/1.
  % "From" must be object/1 (i.e. block/1 or place/1).
  % "To" must be object/1 (i.e. block/1 or place/1).
  % Evidently constraints exist for a move/3 to be possible from or to any given state.
@@ -213,7 +237,7 @@ run :-
  
  assert_goal(X) :-
     assertion(ground(X)),
-    assertion((X = on(A,B), block(A), object(B) ; X = clear(C), object(C))).
+    assertion((X = on(A,B), shape(A), object(B) ; X = clear(C), object(C))).
  
  % ----------
  % A State (a list) is satisfied by Goals (a list) if all the terms in Goals can also be found in State
@@ -295,7 +319,7 @@ run :-
  consistent( on(X,Y), Goals ) :-
    \+ on(X,Y) = on(A,A),            % this cannot ever happen, actually
    \+ member( clear(Y), Goals ),    % if X is on Y then Y cannot be clear
-   \+ ( member( on(X,Y1), Goals ), Y1 \== Y ), % Block cannot be in two places
+   \+ ( member( on(X,Y1), Goals ), Y1 \== Y ), % Shape cannot be in two places
    \+ ( member( on(X1,Y), Goals),  X1 \== X ). % Two blocks cannot be in same place
  
  consistent( clear(X), Goals ) :-
@@ -307,14 +331,15 @@ run :-
  % ----------
  
  instantiate_action(Action) :-
-   assertion(Action = move( Block, From, To)),
-   Action = move( Block, From, To),
-   block(Block), % will unify "Block" with a concrete block
-   object(To),   % will unify "To" with a concrete object (block or place)
-   To \== Block, % equivalent to \+ == (but = would do here); this demands that blocks and places have disjoint sets of atoms
-   object(From), % will unify "From" with a concrete object (block or place)
+   assertion(Action = move( Shape, From, To)),
+   Action = move( Shape, From, To),
+  %  shape(Shape),
+   stackable(Shape, To), % unify "To" with a concrete object (shape or place) and Shape with shape
+   % object(To),   % will unify "To" with a concrete object (shape or place)
+   To \== Shape, % equivalent to \+ == (but = would do here); this demands that blocks and places have disjoint sets of atoms
+   object(From), % will unify "From" with a concrete object (shape or place)
    From \== To,
-   Block \== From.
+   Shape \== From.
  
  % ----------
  % Find preconditions (a list of Goals) of a fully instantiated Action
@@ -322,8 +347,8 @@ run :-
  
  preconditions(Action, Preconditions) :-
    assertion(ground(Action)),
-   Action = move( Block, From, To),
-   Preconditions = [clear(Block), clear(To), on(Block, From)].
+   Action = move( Shape, From, To),
+   Preconditions = [clear(Shape), clear(To), on(Shape, From)].
  
  % ----------
  % would_del( Move, DelGoals )
@@ -331,5 +356,5 @@ run :-
  % If we run Move (assuming it is possible), what goals do we have to add/remove from an existing Goals
  % ----------
  
- would_del( move( Block, From, To), [on(Block,From), clear(To)] ).
- would_add( move( Block, From, To), [on(Block,To), clear(From)] ).
+ would_del( move( Shape, From, To), [on(Shape,From), clear(To)] ).
+ would_add( move( Shape, From, To), [on(Shape,To), clear(From)] ).
