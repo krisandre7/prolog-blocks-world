@@ -21,10 +21,7 @@
 % Encapsulator to be called by user from the toplevel
 % ----------
 
-run :- 
-    % Setting up
-    start_state(State),
-    final_state(Goals),
+run(State, Goals, Plan) :- 
     % TODO: Build predicates that verify that State and Goal are actually validly constructed
     % Or choose better representations
     nb_setval(glob_plancalls,0), % global variable for counting calls (non-backtrackable)
@@ -53,9 +50,84 @@ run :-
  % On the other hand, the final state and end state need not be specified fully, which is
  % interesting (not sure what that means exactly regarding solution finding)
  % The atoms used in describing places and blocks must be distinct due to program construction!
- 
- start_state([on(a,1), on(b,2), on(c,3), clear(a), clear(b), clear(c), clear(4)]).
- final_state([on(a,1), on(b,2), on(c,a), clear(c), clear(2), clear(3), clear(4)]).
+
+
+%ANTES
+% profundidade 1     profundidade 2
+%     
+%     
+%     a b              d c   f g 
+% _ _ _ _ _ _ _      _ _ _ _ _ _ _
+% 1 2 3 4 5 6 7      1 2 3 4 5 6 7
+
+%DEPOIS
+% profundidade 1     profundidade 2
+%                            c
+%                            b  
+%     d                g     a f 
+% _ _ _ _ _ _ _      _ _ _ _ _ _ _
+% 1 2 3 4 5 6 7      1 2 3 4 5 6 7
+run_tests :-
+  Tests = [
+    [ % Triângulos podem ser empilhados em blocos
+      [on(a,1_1), on(b,1_2), on(c,1_3), on(d,1_4), on(f,1_5), on(g,1_6), clear(a), clear(b), clear(c), clear(d), clear(f), clear(g), clear(1_7),
+      clear(2_1),clear(2_2),clear(2_3),clear(2_4),clear(2_5),clear(2_6),clear(2_7)],
+      [on(a,1_1), on(b,1_2), on(c,a), on(d,1_4), on(f,1_5), on(g,1_6), clear(b), clear(c), clear(d), clear(f), clear(g),clear(1_3),clear(1_7),
+      clear(2_1),clear(2_2),clear(2_3),clear(2_4),clear(2_5),clear(2_6),clear(2_7)]
+    ],
+    [ % Triângulos podem ser empilhados em lugares
+      [on(a,1_1), on(b,1_2), on(c,1_3), on(d,1_4), on(f,1_5), on(g,1_6), clear(a), clear(b), clear(c), clear(d), clear(f), clear(g), clear(1_7),
+      clear(2_1),clear(2_2),clear(2_3),clear(2_4),clear(2_5),clear(2_6),clear(2_7)],
+      [on(a,1_1), on(b,1_2), on(c,1_7), on(d,1_4), on(f,1_5), on(g,1_6), clear(a), clear(b), clear(c), clear(d), clear(f), clear(g),clear(1_3),
+      clear(2_1),clear(2_2),clear(2_3),clear(2_4),clear(2_5),clear(2_6),clear(2_7)]
+    ],
+    [ % Blocos podem ser empilhados em lugares
+      [on(a,1_1), on(b,1_2), on(c,1_3), on(d,1_4), on(f,1_5), on(g,1_6), clear(a), clear(b), clear(c), clear(d), clear(f), clear(g), clear(1_7),
+      clear(2_1),clear(2_2),clear(2_3),clear(2_4),clear(2_5),clear(2_6),clear(2_7)],
+      [on(a,1_7), on(b,1_2), on(c,1_3), on(d,1_4), on(f,1_5), on(g,1_6), clear(a), clear(b), clear(c), clear(d), clear(f), clear(g),clear(1_1),
+      clear(2_1),clear(2_2),clear(2_3),clear(2_4),clear(2_5),clear(2_6),clear(2_7)]
+    ],
+    [ % Blocos podem ser empilhados em blocos
+        [on(a,1_1), on(b,1_2), on(c,1_3), on(d,1_4), on(f,1_5), on(g,1_6), clear(a), clear(b), clear(c), clear(d), clear(f), clear(g), clear(1_7),
+        clear(2_1),clear(2_2),clear(2_3),clear(2_4),clear(2_5),clear(2_6),clear(2_7)],
+        [on(a,b), on(b,1_2), on(c,1_3), on(d,1_4), on(f,1_5), on(g,1_6), clear(a), clear(c), clear(d), clear(f), clear(g),clear(1_1),clear(1_7),
+        clear(2_1),clear(2_2),clear(2_3),clear(2_4),clear(2_5),clear(2_6),clear(2_7)]
+        ],
+    [ % Bolas podem ser empilhadas em lugares
+        [on(a,1_1), on(b,1_2), on(c,1_3), on(d,1_4), on(f,1_5), on(g,1_6), clear(a), clear(b), clear(c), clear(d), clear(f), clear(g), clear(1_7),
+        clear(2_1),clear(2_2),clear(2_3),clear(2_4),clear(2_5),clear(2_6),clear(2_7)],
+        [on(a,1_1), on(b,1_2), on(c,1_3), on(d,1_4), on(f,1_7), on(g,1_6), clear(a), clear(b), clear(c), clear(d), clear(f), clear(g),clear(1_5),
+        clear(2_1),clear(2_2),clear(2_3),clear(2_4),clear(2_5),clear(2_6),clear(2_7)]
+    ]
+  ],
+  MoveList = [
+    [move(c,1_3,a)],
+    [move(c,1_3,1_7)],
+    [move(a,1_1,1_7)],
+    [move(a,1_1,b)],
+    [move(f,1_5,1_7)]
+  ],
+  nb_setval(glob_isTest, true),
+  nb_setval(glob_callLimit, 1000), 
+  run_test(Tests, MoveList).
+
+run_test([], []) :- 
+  format('~n-------TODOS OS TESTES PASSARAM!-------~n', []), 
+  nb_setval(glob_isTest, false).
+
+run_test([Test | Tests], [Moves | MovesList]) :-
+  nb_setval(glob_plancalls, 0),
+  b_setval(glob_depth, 0),
+  Test = [Start, End],
+  run(Start, End, Plan),
+  assert_moves(Moves, Plan),
+  format('~n-------TESTE PASSOU!-------~n', []),
+  run_test(Tests, MovesList).
+
+assert_moves([], []).
+assert_moves([Move | Moves], [SubPlan | Plan]) :-
+ assertion(Move = SubPlan),
+ assert_moves(Moves, Plan).
 
 %  start_state([on(b,1), on(d,2), clear(b), clear(d), clear(3), clear(4)]).
 %  final_state([on(d,2), on(b,d), clear(b), clear(1), clear(3), clear(4)]).
@@ -77,36 +149,42 @@ run :-
  % A block/1 is on(Shape, Object) where Object is a block/1 or place/1.
  
  block(a).
-%  block(b).
-%  block(c).
- triangle(b).
- ball(c).
+ block(b).
+ pyramid(c).
+ pyramid(d).
+ ball(f).
+ ball(g).
  
  % We have PLACEs (i.e. columns of blocks) onto which to stack blocks.
  % Each of these is identified by place/1 attribute.
  % A place/1 can be clear/1 if there is nothing on top of it.
  % (In fact these are like special immutable blocks and should be modeled as such)
  
- place(1).
- place(2).
- place(3).
- place(4).
- 
- % OBJECTs are place/1 or block/1.
- 
- shape(X) :- block(X) ; triangle(X) ; ball(X).
+ place(1_1).
+ place(1_2).
+ place(1_3).
+ place(1_4).
+ place(1_5).
+ place(1_6).
+ place(1_7).
+ place(2_1).
+ place(2_2).
+ place(2_3).
+ place(2_4).
+ place(2_5).
+ place(2_6).
+ place(2_7).
+
+ shape(X) :- block(X) ; pyramid(X) ; ball(X).
  object(X) :- place(X) ; shape(X).
 
- % Checks if a shape can be stacked
- stackable(Shape, To) :- 
-  shape(Shape), 
-  (place(To) ; block(To)). % Shapes can only be stacked or blocks
+ stackable(Shape,To) :-
+  (ball(Shape) -> place(To)) ; (place(To) ; block(To)).
 
- % Balls can only be stacked in place
- stackable(Shape, To) :-
-  ball(Shape),
-  place(To).
- 
+%  rectangle(f).
+%  size(f, 2).
+%  [on(f,1), on(f, 2)]
+
  % ACTIONs are terms "move( Shape, From, To)".
  % "Shape" must be block/1.
  % "From" must be object/1 (i.e. block/1 or place/1).
@@ -128,6 +206,14 @@ run :-
  
  % This can only succeed if we are at the "end" of a Plan (the Plan must match '[]') and State matches Goal.
  
+ limit_calls(Calls) :-
+  b_getval(glob_isTest, IsTest), 
+  b_getval(glob_callLimit, CallLimit), 
+  (  IsTest
+  -> Calls < CallLimit
+  ;  true
+  ).
+
  plan( State, Goals, []) :-
  
    % Debugging output
@@ -137,6 +223,7 @@ run :-
    ND is D+1, 
    nb_setval(glob_plancalls,NP), 
    b_setval(glob_depth,ND),
+  %  limit_calls(NP),
    statistics(stack,STACK),
    format('plan/3 call ~w at depth ~d (stack ~d)~n',[NP,ND,STACK]),
  
@@ -181,13 +268,15 @@ run :-
    ((nonvar(Plan), Plan == []) -> fail ; true ),
  
    % Debugging output
+   statistics(stack,STACK),
+  %  b_getval(glob_isTest, IsTest),
+  %  limit_stack(IsTest, STACK, 100000),
    nb_getval(glob_plancalls,P), 
    b_getval(glob_depth,D), 
    NP is P+1, 
    ND is D+1, 
    nb_setval(glob_plancalls,NP), 
    b_setval(glob_depth,ND),
-   statistics(stack,STACK),
    format('plan/3 call ~w at depth ~d (stack ~d)~n',[NP,ND,STACK]),
    format('       goals ~w~n',[Goals]),
  
